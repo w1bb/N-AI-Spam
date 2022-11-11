@@ -1,0 +1,145 @@
+          Copyright (C) 2022 Valentin-Ioan VINTILA (313CA / 2021-2022)          
+          All rights reserved.          
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~          
+
+                          Bonus Task (Task 4) - Baliza                          
+                          ============================
+
+The following document presents a spam detector with a great F1 score that was
+created from scratch. I'll cover all the missing details in the comments written
+throughout the code.
+
+
+
+==========================
+The general code structure
+==========================
+
+Since there are two subproblems, I've included each task in the 'sd_tasks'
+header. Because I had to debug a lot of code, I've created a simple yet useful
+error handling and logging utility which can be found in 'sd_errors'. Reading
+the emails' content is as simple as calling a function from the 'sd_input'
+header, and parsing it can be achieved using 'sd_parse'. To detect duplicate
+emails (which are usually spam), I've created a hashing function, which can be
+called from the 'sd_hash' header. Scoring an email requires a way to parse a
+set of keywords ('sd_keywords') and to check if they appear in a given string
+('sd_kmp'); in the end, the magic happens in 'sd_score'. Other utilities include
+some smarter memory management functions ('sd_memory') and some miscellaneous
+ones as well ('sd_utilities'). Everything is glued together in the
+'spam_detector' files.
+
+All header files contain a brief description of their purpose in the first few
+lines of code. Also, each function's behaviour is explained above its definition
+alongside its parameters and its return value.
+
+
+
+======
+Task 1
+======
+
+Computing stdev is trivial. Once the emails were read using the
+read_all_emails() function, all occurences of those keywords are counted using a
+KMP algorithm. The formula is then applied, and that is the end of the story.
+
+It is however worth mentioning that my initial idea was to use a trie, but that
+proved to be a challenge due to the way words were actually counted.
+
+
+
+======
+Task 2
+======
+
+We attach a score to each and every one of our emails. This score will determine
+if an email is SPAM or HAM (non-spam):
+
+- score < 35, tagging the email as definitely HAM (DHAM);
+- 35 <= score < 42, considering the email as probably HAM (PHAM);
+- 42 <= score < 50, making it a suspicious HAM (SHAM);
+- 50 <= score, making it a SPAM.
+
+These are the methods used in order to arrive at such a score:
+
+1. Unbalanced P-Score
+---------------------
+
+This is the punctuation score. Here is its formula:
+
+- Take the maximum amount of consecutive asterisks; If the amount is 1, add 6p;
+  if the amount is smaller than 4, add 8p for each asterisk and then take 2p;
+  if the amount is greater or equal to 4, add 15p for each asterisk and then
+  take 30p.
+- If there is at least one dollar sign, add 15p; for each additional symbol, add
+  another 7p.
+- If there is at least one exclamation mark, add 0.8p; for each additional
+  symbol, add another 2.4 points.
+- Take this score and compute its value relative to an email with exactly 1000
+  characters.
+- Some small upgrade to the formula includes taking into account the number of
+  characters relative to the number of counted words. This can be found in the
+  'sd_score' header file.
+
+The P-Score is later computed using the unbalanced value and the K-Score
+
+2. U-Score
+----------
+
+This is the uppercase score. It is a better version of the proposed function:
+
+- Compute the percentage of uppercase letters from the email (relative to the
+  total count of non-space characters).
+- Here is the formula I've used based on that percentage:
+  https://www.desmos.com/calculator/lw4qgluitr
+
+3. C-Score
+----------
+
+This is the consonant score. If there are words with too many consecutive
+consonants, they will trigger this filter. Please note that websites are (
+sometimes wrongly, since links are vaguely defined in my implementation - but
+the approximation is good enough) ignored.
+
+4. K-Score
+----------
+
+This is the big one. Some keywords are good, some are bad, some represent
+connectivity and some can usually be found in a newsletter. These aren't very
+interesting, but what is important is that emails with no links / email
+addresses are usually ham; also, those with too many links are usually news.
+
+More info can be found in the 'sd_score' header.
+
+Note: Response emails are usually ham, so their score is halved.
+
+5. S-Score
+----------
+
+This is read from the given 'spammers' file. The values were originally designed
+for spam emails with score 35 - so they are converted by multiplying with 50/35.
+
+6. Pre-Score
+------------
+
+This is the sum of all the scores mentioned above. This is not the final score,
+since some of the spam emails might have been omitted.
+
+7. Post-Score
+-------------
+
+The final scores are computed once duplicate emails are reevaluated (their
+scores are increased based on their previous scores and on the number of
+duplicates).
+
+
+
+===========
+Conclusions
+===========
+
+This method yields these results:
+- Public tests:  F1=99.009% (Email #010 is wrongly labeled as SPAM)
+- Private tests: F1=91.625%
+
+For further info, please refer to the code. For any questions, please contact me
+at valentin.vintila@stud.acs.upb.ro
